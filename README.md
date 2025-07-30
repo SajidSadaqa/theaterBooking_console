@@ -14,7 +14,7 @@ Simple console app (Java 17 + PostgreSQL) to manage theater seat types, sectio
 ## 2. Technology stack  
 | Part | Tool / Library |
 |------|----------------|
-| Language | Java 17 (or later) |
+| Language | Java 17 |
 | Build   | Maven |
 | Database | PostgreSQL 14+ |
 | Connection pool | HikariCP |
