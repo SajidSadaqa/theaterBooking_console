@@ -9,10 +9,12 @@ public class Section {
     private final int seatsPerRow;
     private final String description;
     private final boolean isActive;
+    private final int theaterId;
 
-    public Section(int id, String name, int seatTypeId, String seatTypeName,
+    public Section(int theaterId,int id, String name, int seatTypeId, String seatTypeName,
                    int rows, int seatsPerRow, String description, boolean isActive) {
         this.id = id;
+        this.theaterId = theaterId;
         this.name = name;
         this.seatTypeId = seatTypeId;
         this.seatTypeName = seatTypeName;
@@ -23,6 +25,7 @@ public class Section {
     }
 
     public int getId() { return id; }
+    public int getTheaterId() { return theaterId; }
     public String getName() { return name; }
     public int getSeatTypeId() { return seatTypeId; }
     public String getSeatTypeName() { return seatTypeName; }

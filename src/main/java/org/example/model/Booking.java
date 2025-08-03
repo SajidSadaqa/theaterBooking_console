@@ -43,6 +43,6 @@ public class Booking {
 
     @Override
     public String toString() {
-        return seatCode + " - " + customerName + " ($" + String.format("%.2f", totalPrice) + ") - " + bookingTime;
+        return id + " - " + seatCode + " - " + customerName + " ($" + String.format("%.2f", totalPrice) + ") - " + bookingTime;
     }
 }

@@ -22,7 +22,7 @@ public class TxtFile implements UploadFile {
                     p[0],
                     Integer.parseInt(p[1]),
                     Integer.parseInt(p[2]),
-                    Integer.parseInt(p[3])
+                    p[3].trim()
             ));
         }
         return list;

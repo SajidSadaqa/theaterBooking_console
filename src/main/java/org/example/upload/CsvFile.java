@@ -18,11 +18,15 @@ public class CsvFile implements UploadFile {
                 continue;
             }
 
+            if (!p[1].trim().matches("\\d+")) {
+                continue;
+            }
+
             list.add(new SectionRow(
                     p[0].trim(),
                     Integer.parseInt(p[1].trim()),
                     Integer.parseInt(p[2].trim()),
-                    Integer.parseInt(p[3].trim())
+                    p[3].trim()
             ));
         }
         return list;

@@ -1,0 +1,7 @@
+[
+  { "seatCode": "F110101",  "customerName": "tota Tarawneh", "customerEmail": "lina.t@example.com",  "customerPhone": "5556666" },
+  { "seatCode": "F110102",  "customerName": "ismail Doe",   "customerEmail": "m.doe@example.com",    "customerPhone": "5557777" },
+  { "seatCode": "F110103",  "customerName": "Sara Smith",    "customerEmail": "sara.s@example.com",   "customerPhone": "5558888" },
+  { "seatCode": "F110108",  "customerName": "Mary Haddad",   "customerEmail": "mary.h@example.com",   "customerPhone": "5559999" },
+  { "seatCode": "G310118",  "customerName": "Fatima Khan",   "customerEmail": "fatima.k@example.com", "customerPhone": "5550000" }
+]

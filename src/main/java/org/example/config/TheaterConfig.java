@@ -6,7 +6,7 @@ public class TheaterConfig {
     private final String configValue;
     private final String description;
 
-    public TheaterConfig(int id, String configKey, String configValue, String description) {
+    public TheaterConfig(int id, int theaterId, String configKey, String configValue, String description) {
         this.id = id;
         this.configKey = configKey;
         this.configValue = configValue;

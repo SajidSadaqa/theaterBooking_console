@@ -6,7 +6,7 @@ public class SectionRow {
     private final int totalSeats;
     private final String seatType;
 
-    public SectionRow(String sectionName, int rowNumber, int totalSeats, int seatType) {
+    public SectionRow(String sectionName, int rowNumber, int totalSeats, String seatType) {
         this.sectionName = sectionName;
         this.rowNumber = rowNumber;
         this.totalSeats = totalSeats;

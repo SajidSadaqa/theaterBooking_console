@@ -7,45 +7,61 @@ import java.util.Optional;
 
 public interface TheaterDAO {
 
-    List<SeatType> getAllSeatTypes();
-    Optional<SeatType> getSeatTypeById(int id);
-    Optional<SeatType> getSeatTypeByName(String name);
-    int createSeatType(String name, String description, double price);
-    boolean updateSeatType(int id, String name, String description, double price);
-    boolean deleteSeatType(int id);
+    // Theater management
+    List<Theater> getAllTheaters();
+    Optional<Theater> getTheaterById(int theaterId);
+    int createTheater(String name, String location);
+    boolean updateTheater(int theaterId, String name, String location);
+    boolean deleteTheater(int theaterId);
 
+    // Seat Type management - now all methods include theaterId
+    List<SeatType> getAllSeatTypes(int theaterId);
+    Optional<SeatType> getSeatTypeById(int id, int theaterId);
+    Optional<SeatType> getSeatTypeByName(String name, int theaterId);
+    int createSeatType(int theaterId, String name, String description, double price);
+    boolean updateSeatType(int id, int theaterId, String name, String description, double price);
+    boolean deleteSeatType(int id, int theaterId);
 
-    List<Section> getAllSections();
-    List<Section> getActiveSections();
-    Optional<Section> getSectionByName(String name);
-    int createSection(String name, int seatTypeId, int rows, int seatsPerRow, String description);
-    boolean updateSection(String name, int rows, int seatsPerRow, int seatTypeId);
-    boolean deactivateSection(String name);
-    boolean activateSection(String name);
-    int generateSeatsForSection(String sectionName);
+    // Section management - all methods updated with theaterId
+    List<Section> getAllSections(int theaterId);
+    List<Section> getActiveSections(int theaterId);
+    Optional<Section> getSectionByName(String name, int theaterId);
+    int createSection(int theaterId, String name, int seatTypeId, int rows, int seatsPerRow, String description);
+    boolean updateSection(String name, int theaterId, int rows, int seatsPerRow, int seatTypeId);
+    boolean deactivateSection(String name, int theaterId);
+    boolean activateSection(String name, int theaterId);
+    int generateSeatsForSection(String sectionName, int theaterId);
 
+    // Seat management - all methods updated with theaterId
+    List<Seat> getSeatsBySection(String sectionName, int theaterId);
+    List<Seat> getAvailableSeatsBySection(String sectionName, int theaterId);
+    List<Seat> getAvailableSeatsByRow(String sectionName, int row, int theaterId);
+    Optional<Seat> getSeatByCode(String seatCode, int theaterId);
+    boolean bookSeat(String seatCode, int theaterId, String customerName, String customerEmail, String customerPhone);
+    List<Seat> getAllAvailableSeats(int theaterId);
+    List<Seat> getAllBookedSeats(int theaterId);
 
-    List<Seat> getSeatsBySection(String sectionName);
-    List<Seat> getAvailableSeatsBySection(String sectionName);
-    List<Seat> getAvailableSeatsByRow(String sectionName, int row);
-    Optional<Seat> getSeatByCode(String seatCode);
-    boolean bookSeat(String seatCode, String customerName, String customerEmail, String customerPhone);
-    List<Seat> getAllAvailableSeats();
-    List<Seat> getAllBookedSeats();
+    // Booking management - updated with theaterId
+    List<Booking> getAllBookings(int theaterId);
+    Optional<Booking> getBookingById(int id, int theaterId);
+    boolean cancelBooking(int bookingId, int theaterId);
 
+    // Configuration management - updated with theaterId
+    List<TheaterConfig> getAllConfigs(int theaterId);
+    Optional<TheaterConfig> getConfigByKey(String key, int theaterId);
+    boolean updateConfig(String key, String value, int theaterId);
 
-    List<Booking> getAllBookings();
-    Optional<Booking> getBookingById(int id);
-    boolean cancelBooking(int bookingId);
+    // Statistics - all methods now theater-specific
+    int getTotalSeats(int theaterId);
+    int getAvailableSeatsCount(int theaterId);
+    int getBookedSeatsCount(int theaterId);
+    double getTotalRevenue(int theaterId);
 
-    List<TheaterConfig> getAllConfigs();
-    Optional<TheaterConfig> getConfigByKey(String key);
-    boolean updateConfig(String key, String value);
-
-    // Statistics
-    int getTotalSeats();
-    int getAvailableSeatsCount();
-    int getBookedSeatsCount();
-    double getTotalRevenue();
+    // Additional cross-theater statistics methods
+    int getTotalSeatsAllTheaters();
+    int getAvailableSeatsCountAllTheaters();
+    int getBookedSeatsCountAllTheaters();
+    double getTotalRevenueAllTheaters();
+    List<Booking> getAllBookingsAllTheaters();
 }
 
