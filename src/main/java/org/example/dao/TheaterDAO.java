@@ -10,6 +10,7 @@ public interface TheaterDAO {
     // Theater management
     List<Theater> getAllTheaters();
     Optional<Theater> getTheaterById(int theaterId);
+    Optional<Theater> getTheaterByName(String name);
     int createTheater(String name, String location);
     boolean updateTheater(int theaterId, String name, String location);
     boolean deleteTheater(int theaterId);
@@ -18,7 +19,10 @@ public interface TheaterDAO {
     List<SeatType> getAllSeatTypes(int theaterId);
     Optional<SeatType> getSeatTypeById(int id, int theaterId);
     Optional<SeatType> getSeatTypeByName(String name, int theaterId);
-    int createSeatType(int theaterId, String name, String description, double price);
+    int createSeatType(String name,
+                       String description,
+                       double price,
+                       int theaterId);
     boolean updateSeatType(int id, int theaterId, String name, String description, double price);
     boolean deleteSeatType(int id, int theaterId);
 
@@ -63,5 +67,8 @@ public interface TheaterDAO {
     int getBookedSeatsCountAllTheaters();
     double getTotalRevenueAllTheaters();
     List<Booking> getAllBookingsAllTheaters();
+    Optional<Section> getSectionByNameAndTheater(String name, int theaterId);
+    int createSection(String name, int theaterId, int seatTypeId,
+                      int rows, int seatsPerRow, String description);
 }
 

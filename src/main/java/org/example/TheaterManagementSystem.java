@@ -3,6 +3,9 @@ package org.example;
 import org.example.dao.*;
 import org.example.model.*;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
@@ -382,14 +385,17 @@ public class TheaterManagementSystem {
 
     private void createSeatType() {
         System.out.println("\n=== Create New Seat Type ===");
+        System.out.print("Theater ID: ");
+        int theaterId = Integer.parseInt(scanner.nextLine());
         System.out.print("Seat type name: ");
         String name = scanner.nextLine().toUpperCase();
         System.out.print("Description: ");
         String description = scanner.nextLine();
         System.out.print("Price: $");
+
         double price = getDoubleInput();
 
-        int id = theaterDAO.createSeatType(currentTheaterId, name, description, price);
+        int id = theaterDAO.createSeatType(name, description, price,theaterId);
         if (id > 0) {
             System.out.println("Seat type created successfully with ID: " + id);
         } else {
@@ -402,8 +408,11 @@ public class TheaterManagementSystem {
         viewAllSeatTypes();
         System.out.print("Enter seat type name to update: ");
         String name = scanner.nextLine().toUpperCase();
+        System.out.print("Enter seat type name to update: ");
+        String theaterId = scanner.nextLine().toUpperCase();
 
-        Optional<SeatType> seatType = theaterDAO.getSeatTypeByName(name, currentTheaterId);
+
+        Optional<SeatType> seatType = theaterDAO.getSeatTypeByName(name, Integer.parseInt(theaterId));
         if (seatType.isEmpty()) {
             System.out.println("Seat type not found!");
             return;
@@ -436,8 +445,10 @@ public class TheaterManagementSystem {
         viewAllSeatTypes();
         System.out.print("Enter seat type name to delete: ");
         String name = scanner.nextLine().toUpperCase();
+        System.out.print("Enter seat type name to delete: ");
+        String theaterId = scanner.nextLine().toUpperCase();
 
-        Optional<SeatType> seatType = theaterDAO.getSeatTypeByName(name, currentTheaterId);
+        Optional<SeatType> seatType = theaterDAO.getSeatTypeByName(name, Integer.parseInt(theaterId));
         if (seatType.isEmpty()) {
             System.out.println("Seat type not found!");
             return;
@@ -465,7 +476,8 @@ public class TheaterManagementSystem {
             System.out.println("4. Activate/Deactivate section");
             System.out.println("5. Regenerate seats for section");
             System.out.println("6. Import sections from file");
-            System.out.println("7. Back to main menu");
+            System.out.println("7. Import theater layout from file");
+            System.out.println("8. Back to main menu");
             System.out.print("Choose an option: ");
 
             int choice = getIntInput();
@@ -476,7 +488,8 @@ public class TheaterManagementSystem {
                 case 4 -> toggleSectionStatus();
                 case 5 -> regenerateSeats();
                 case 6 -> importSectionsFromFile();
-                case 7 -> {
+                case 7 -> importTheaterLayout();
+                case 8 -> {
                     return;
                 }
                 default -> System.out.println("Invalid choice!");
@@ -506,7 +519,7 @@ public class TheaterManagementSystem {
             for (SectionRow r : rows) {
                 Optional<SeatType> st = r.getSeatType().matches("\\d+")
                         ? theaterDAO.getSeatTypeById(Integer.parseInt(r.getSeatType()), currentTheaterId)
-                        : theaterDAO.getSeatTypeByName(r.getSeatType(), currentTheaterId);
+                        : theaterDAO.getSeatTypeByName(r.getSeatType(), theaterId);
 
                 if (st.isEmpty()) {
                     System.out.println("Unknown seat type " + r.getSeatType() + " – skipped");
@@ -571,7 +584,7 @@ public class TheaterManagementSystem {
         System.out.print("Seat type name: ");
         String seatTypeName = scanner.nextLine().toUpperCase();
 
-        Optional<SeatType> seatType = theaterDAO.getSeatTypeByName(seatTypeName, currentTheaterId);
+        Optional<SeatType> seatType = theaterDAO.getSeatTypeByName(seatTypeName, theaterId);
         if (seatType.isEmpty()) {
             System.out.println("Invalid seat type!");
             return;
@@ -617,7 +630,7 @@ public class TheaterManagementSystem {
         System.out.print("New seat type name: ");
         String seatTypeName = scanner.nextLine().toUpperCase();
 
-        Optional<SeatType> seatType = theaterDAO.getSeatTypeByName(seatTypeName, currentTheaterId);
+        Optional<SeatType> seatType = theaterDAO.getSeatTypeByName(seatTypeName, theaterId);
         if (seatType.isEmpty()) {
             System.out.println("Invalid seat type!");
             return;
@@ -1015,5 +1028,355 @@ public class TheaterManagementSystem {
         }
         return new ImportStats(created, skipped, errors);
     }
+    private void importTheaterLayout() {
+        System.out.print("Enter layout CSV/JSON file path: ");
+        String path = scanner.nextLine().trim();
+
+        // pick CSV or JSON parser
+        LayoutUploadFile parser = path.toLowerCase().endsWith(".json")
+                ? new TheaterLayoutJsonFile()
+                : new TheaterLayoutCsvFile();
+
+        int createdTheaters   = 0;
+        int createdSeatTypes  = 0;
+        int createdSections   = 0;
+
+        try {
+            List<TheaterLayoutRow> rows = parser.parse(path);
+            System.out.println("=== PARSED " + rows.size() + " LAYOUT ENTRIES ===");
+
+            for (TheaterLayoutRow r : rows) {
+                // ——— 1) Theater ———
+                Optional<Theater> thOpt = theaterDAO.getTheaterByName(r.theaterName());
+                int theaterId;
+                if (thOpt.isPresent()) {
+                    theaterId = thOpt.get().getId();
+                } else {
+                    theaterId = theaterDAO.createTheater(
+                            r.theaterName(),
+                            r.theaterDescription()
+                    );
+                    createdTheaters++;
+                    System.out.println("➕ Created theater: " + r.theaterName() + " (ID " + theaterId + ")");
+                }
+
+                // ——— 2) SeatType (scoped per theater) ———
+                String stName = r.seatTypeName().toUpperCase();
+                Optional<SeatType> stOpt = theaterDAO.getSeatTypeByName(stName, theaterId);
+                int seatTypeId;
+                if (stOpt.isPresent()) {
+                    seatTypeId = stOpt.get().getId();
+                } else {
+                    seatTypeId = theaterDAO.createSeatType(
+                            stName,
+                            "Imported " + stName,
+                            25.0,         // default price
+                            theaterId
+                    );
+                    createdSeatTypes++;
+                    System.out.println("➕ Created seat-type: " + stName + " for theater ID " + theaterId);
+                }
+
+                // ——— 3) Section ———
+                Optional<Section> secOpt =
+                        theaterDAO.getSectionByNameAndTheater(r.sectionName(), theaterId);
+                if (secOpt.isEmpty()) {
+                    theaterDAO.createSection(
+                            r.sectionName(),
+                            theaterId,
+                            seatTypeId,
+                            r.rowNumber(),
+                            r.getTotalSeats(),          // sums all your segments
+                            "Imported layout"
+                    );
+                    createdSections++;
+                    System.out.println("➕ Created section: " + r.sectionName()
+                            + " in theater ID " + theaterId);
+                }
+            }
+
+            // ——— Final summary ———
+            System.out.println("\n=== IMPORT SUMMARY ===");
+            System.out.printf("Theaters created   : %d%n", createdTheaters);
+            System.out.printf("Seat-types created : %d%n", createdSeatTypes);
+            System.out.printf("Sections created   : %d%n", createdSections);
+
+        } catch (Exception ex) {
+            System.err.println("Failed to import layout: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+    }
+
+    // Add this debug method to your TheaterManagementSystem class
+
+    private void debugImportTheaterLayout(String filePath) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            int lineNumber = 0;
+
+            System.out.println("=== DEBUG: CSV Import Analysis ===");
+
+            while ((line = reader.readLine()) != null) {
+                lineNumber++;
+
+                if (lineNumber == 1) {
+                    System.out.println("Headers: " + line);
+                    continue;
+                }
+
+                String[] parts = line.split(",");
+                System.out.println("\nLine " + lineNumber + ": " + line);
+
+                if (parts.length >= 6) {
+                    String theaterName = parts[0].trim();
+                    String sectionName = parts[1].trim();
+                    String seatTypeName = parts[2].trim();
+
+                    System.out.println("  Theater: '" + theaterName + "'");
+                    System.out.println("  Section: '" + sectionName + "'");
+                    System.out.println("  SeatType: '" + seatTypeName + "'");
+
+                    // Check if theater exists
+                    Optional<Theater> theaterOpt = theaterDAO.getTheaterByName(theaterName);
+                    if (theaterOpt.isEmpty()) {
+                        System.out.println("  ❌ THEATER NOT FOUND: '" + theaterName + "'");
+
+                        // Show available theaters
+                        List<Theater> allTheaters = theaterDAO.getAllTheaters();
+                        System.out.println("  Available theaters:");
+                        for (Theater t : allTheaters) {
+                            System.out.println("    - '" + t.getName() + "'");
+                        }
+                        continue;
+                    } else {
+                        System.out.println("  ✓ Theater found: ID=" + theaterOpt.get().getId());
+                    }
+
+                    Theater theater = theaterOpt.get();
+
+                    // Check if seat type exists
+                    Optional<SeatType> seatTypeOpt = theaterDAO.getSeatTypeByName(seatTypeName, theaterId);
+                    if (seatTypeOpt.isEmpty()) {
+                        System.out.println("  ❌ SEAT TYPE NOT FOUND: '" + seatTypeName + "'");
+
+                        // Show available seat types for this theater
+                        List<SeatType> allSeatTypes = theaterDAO.getAllSeatTypes(theater.getId());
+                        System.out.println("  Available seat types for theater '" + theaterName + "':");
+                        for (SeatType st : allSeatTypes) {
+                            System.out.println("    - '" + st.getName() + "'");
+                        }
+                        continue;
+                    } else {
+                        System.out.println("  ✓ Seat type found: ID=" + seatTypeOpt.get().getId());
+                    }
+
+                    // Check if section already exists
+                    Optional<Section> sectionOpt = theaterDAO.getSectionByName(sectionName, theater.getId());
+                    if (sectionOpt.isPresent()) {
+                        System.out.println("  ⚠️ Section already exists: '" + sectionName + "'");
+                    } else {
+                        System.out.println("  ✓ Section is new: '" + sectionName + "'");
+                    }
+
+                } else {
+                    System.out.println("  ❌ INVALID LINE FORMAT - Expected at least 6 columns, got " + parts.length);
+                }
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error reading CSV file: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    // Also add this improved import method with better error handling
+    private void importTheaterLayoutSafe(String filePath) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            int lineNumber = 0;
+            int successCount = 0;
+            int errorCount = 0;
+
+            while ((line = reader.readLine()) != null) {
+                lineNumber++;
+
+                // Skip header
+                if (lineNumber == 1) continue;
+
+                try {
+                    String[] parts = line.split(",");
+
+                    if (parts.length < 6) {
+                        System.err.println("Line " + lineNumber + ": Invalid format - expected 6+ columns, got " + parts.length);
+                        errorCount++;
+                        continue;
+                    }
+
+                    String theaterName = parts[0].trim();
+                    String sectionName = parts[1].trim();
+                    String seatTypeName = parts[2].trim();
+                    int rows = Integer.parseInt(parts[3].trim());
+                    int seatsPerRow = Integer.parseInt(parts[4].trim());
+                    String description = parts[5].trim();
+
+                    // Validate theater exists
+                    Optional<Theater> theaterOpt = theaterDAO.getTheaterByName(theaterName);
+                    if (theaterOpt.isEmpty()) {
+                        System.err.println("Line " + lineNumber + ": Theater not found: '" + theaterName + "'");
+                        errorCount++;
+                        continue;
+                    }
+
+                    Theater theater = theaterOpt.get();
+
+                    // Validate seat type exists
+                    Optional<SeatType> seatTypeOpt = theaterDAO.getSeatTypeByName(seatTypeName, theaterId);
+                    if (seatTypeOpt.isEmpty()) {
+                        System.err.println("Line " + lineNumber + ": Seat type not found: '" + seatTypeName + "'");
+                        errorCount++;
+                        continue;
+                    }
+
+                    SeatType seatType = seatTypeOpt.get();
+
+                    // Check if section already exists
+                    Optional<Section> existingSectionOpt = theaterDAO.getSectionByName(sectionName, theater.getId());
+                    if (existingSectionOpt.isPresent()) {
+                        System.out.println("Line " + lineNumber + ": Section '" + sectionName + "' already exists, skipping...");
+                        continue;
+                    }
+
+                    // Create the section
+                    int sectionId = theaterDAO.createSection(
+                            theater.getId(),
+                            sectionName,
+                            seatType.getId(),
+                            rows,
+                            seatsPerRow,
+                            description
+                    );
+
+                    if (sectionId > 0) {
+                        System.out.println("✓ Line " + lineNumber + ": Created section '" + sectionName + "' with " +
+                                (rows * seatsPerRow) + " seats");
+                        successCount++;
+                    } else {
+                        System.err.println("Line " + lineNumber + ": Failed to create section '" + sectionName + "'");
+                        errorCount++;
+                    }
+
+                } catch (NumberFormatException e) {
+                    System.err.println("Line " + lineNumber + ": Invalid number format - " + e.getMessage());
+                    errorCount++;
+                } catch (Exception e) {
+                    System.err.println("Line " + lineNumber + ": Error - " + e.getMessage());
+                    errorCount++;
+                }
+            }
+
+            System.out.println("\n=== Import Summary ===");
+            System.out.println("Total lines processed: " + (lineNumber - 1));
+            System.out.println("Successful imports: " + successCount);
+            System.out.println("Errors: " + errorCount);
+
+            if (successCount > 0) {
+                System.out.println("Theater layout imported successfully!");
+            }
+
+        } catch (IOException e) {
+            System.err.println("Error reading file: " + e.getMessage());
+        }
+    }
+
+    // Quick method to check what data exists in your database
+    private void checkExistingData() {
+        System.out.println("=== EXISTING DATABASE DATA ===");
+
+        List<Theater> theaters = theaterDAO.getAllTheaters();
+        System.out.println("Available theaters:");
+        for (Theater t : theaters) {
+            System.out.println("- '" + t.getName() + "' (ID: " + t.getId() + ")");
+
+            List<SeatType> seatTypes = theaterDAO.getAllSeatTypes(t.getId());
+            System.out.println("  Seat types:");
+            for (SeatType st : seatTypes) {
+                System.out.println("    - '" + st.getName() + "' ($" + st.getPrice() + ")");
+            }
+
+            List<Section> sections = theaterDAO.getAllSections(t.getId());
+            System.out.println("  Existing sections:");
+            for (Section s : sections) {
+                System.out.println("    - '" + s.getName() + "' (" + s.getRows() + "x" + s.getSeatsPerRow() + ")");
+            }
+            System.out.println();
+        }
+    }
+    private void debugCsvContent(String filePath) {
+        try {
+            List<String> lines = Files.readAllLines(Path.of(filePath));
+            System.out.println("=== CSV FILE CONTENT DEBUG ===");
+            System.out.println("File: " + filePath);
+            System.out.println("Total lines: " + lines.size());
+            System.out.println();
+
+            for (int i = 0; i < Math.min(lines.size(), 10); i++) {
+                String line = lines.get(i);
+                System.out.println("Line " + (i + 1) + ": '" + line + "'");
+
+                if (i == 0) {
+                    // Check header format
+                    if (line.startsWith("theaterName")) {
+                        System.out.println("  ✓ Header format is correct");
+                    } else {
+                        System.out.println("  ❌ Header doesn't start with 'theaterName'");
+                        System.out.println("  Expected: theaterName,theaterDescription,sectionName,rowNumber,seatsPerRow,seatTypeName");
+                        System.out.println("  Actual:   " + line);
+                    }
+                }
+
+                // Show what would be skipped
+                if (line.isBlank()) {
+                    System.out.println("  → SKIP: Blank line");
+                } else if (line.startsWith("#")) {
+                    System.out.println("  → SKIP: Comment line");
+                } else if (line.startsWith("theaterName")) {
+                    System.out.println("  → SKIP: Header line");
+                } else {
+                    String[] parts = line.split(",");
+                    System.out.println("  → PARSE: " + parts.length + " columns");
+                    if (parts.length >= 6) {
+                        System.out.println("    Theater: '" + parts[0].trim() + "'");
+                        System.out.println("    Description: '" + parts[1].trim() + "'");
+                        System.out.println("    Section: '" + parts[2].trim() + "'");
+                        System.out.println("    Rows: '" + parts[3].trim() + "'");
+                        System.out.println("    SeatsPerRow: '" + parts[4].trim() + "'");
+                        System.out.println("    SeatType: '" + parts[5].trim() + "'");
+
+                        // Check if rows and seatsPerRow are valid numbers
+                        try {
+                            Integer.parseInt(parts[3].trim());
+                            System.out.println("    ✓ Rows is valid number");
+                        } catch (NumberFormatException e) {
+                            System.out.println("    ❌ Rows is NOT a valid number: '" + parts[3].trim() + "'");
+                        }
+
+                        try {
+                            Integer.parseInt(parts[4].trim());
+                            System.out.println("    ✓ SeatsPerRow is valid number");
+                        } catch (NumberFormatException e) {
+                            System.out.println("    ❌ SeatsPerRow is NOT a valid number: '" + parts[4].trim() + "'");
+                        }
+                    }
+                }
+                System.out.println();
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error reading CSV file: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+
 
 }

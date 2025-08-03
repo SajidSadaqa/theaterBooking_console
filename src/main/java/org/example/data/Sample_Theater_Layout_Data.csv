@@ -1,0 +1,19 @@
+theaterName,theaterDescription,sectionName,rowNumber,seatsConfiguration,seatTypeName
+Main Theater,Downtown location,Orchestra,1,"12",Standard
+Main Theater,Downtown location,Orchestra,2,"6,0,6",Standard
+Main Theater,Downtown location,Orchestra,3,"8,0,8",Standard
+Main Theater,Downtown location,Orchestra,4,"10,0,10",Standard
+Main Theater,Downtown location,Orchestra,5,"5,0,8,0,5",Standard
+Main Theater,Downtown location,Balcony,1,"15",Premium
+Main Theater,Downtown location,Balcony,2,"7,0,7",Premium
+Main Theater,Downtown location,Balcony,3,"6,0,8,0,6",Premium
+Main Theater,Downtown location,Balcony,4,"4,0,10,0,4",Premium
+Main Theater,Downtown location,Box Left,1,"4",VIP
+Main Theater,Downtown location,Box Right,1,"4",VIP
+Grand Theater,Historic venue,Lower Orchestra,1,"20",Standard
+Grand Theater,Historic venue,Lower Orchestra,2,"10,0,10",Standard
+Grand Theater,Historic venue,Lower Orchestra,3,"8,0,12,0,8",Standard
+Grand Theater,Historic venue,Upper Balcony,1,"12",Economy
+Grand Theater,Historic venue,Upper Balcony,2,"6,0,6",Economy
+Grand Theater,Historic venue,Private Box 1,1,"6",Luxury
+Grand Theater,Historic venue,Private Box 2,1,"6",Luxury

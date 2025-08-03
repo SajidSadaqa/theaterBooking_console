@@ -12,21 +12,30 @@ public class PostgreSQLTheaterDAO implements TheaterDAO {
     // Theater Management
     @Override
     public List<Theater> getAllTheaters() {
-        List<Theater> theaters = new ArrayList<>();
-        String sql = "SELECT * FROM theaters ORDER BY name";
-
+        List<Theater> list = new ArrayList<>();
+        String sql = """
+        SELECT
+          id,
+          name,
+          location
+        FROM theaters
+        ORDER BY name
+        """;
         try (Connection conn = DatabaseConfig.getDataSource().getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
 
             while (rs.next()) {
-                theaters.add(mapTheater(rs));
+                list.add(new Theater(
+                        rs.getInt   ("id"),
+                        rs.getString("name"),
+                        rs.getString("location")  // Fixed: was "description"
+                ));
             }
         } catch (SQLException e) {
             throw new RuntimeException("Error fetching theaters", e);
         }
-
-        return theaters;
+        return list;
     }
 
     @Override
@@ -153,17 +162,16 @@ public class PostgreSQLTheaterDAO implements TheaterDAO {
 
     @Override
     public Optional<SeatType> getSeatTypeByName(String name, int theaterId) {
-        String sql = "SELECT * FROM seat_types WHERE name = ? AND theater_id = ?";
+        String sql = "SELECT * FROM seat_types WHERE name = ?";
 
         try (Connection conn = DatabaseConfig.getDataSource().getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, name);
-            stmt.setInt(2, theaterId);
-            ResultSet rs = stmt.executeQuery();
-
-            if (rs.next()) {
-                return Optional.of(mapSeatType(rs));
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(mapSeatType(rs));
+                }
             }
         } catch (SQLException e) {
             throw new RuntimeException("Error fetching seat type", e);
@@ -172,27 +180,37 @@ public class PostgreSQLTheaterDAO implements TheaterDAO {
         return Optional.empty();
     }
 
+
     @Override
-    public int createSeatType(int theaterId, String name, String description, double price) {
-        String sql = "INSERT INTO seat_types (theater_id, name, description, price) VALUES (?, ?, ?, ?) RETURNING id";
+    public int createSeatType(String name,
+                              String description,
+                              double price,
+                              int theaterId) {
+        // now inserting the new theater_id FK as 4th column
+        String sql = """
+        INSERT INTO seat_types
+          (name, description, price, theater_id)
+        VALUES (?, ?, ?, ?)
+        RETURNING id
+        """;
 
-        try (Connection conn = DatabaseConfig.getDataSource().getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+        try ( Connection conn = DatabaseConfig.getDataSource().getConnection();
+              PreparedStatement stmt = conn.prepareStatement(sql) ) {
 
-            stmt.setInt(1, theaterId);
-            stmt.setString(2, name);
-            stmt.setString(3, description);
-            stmt.setDouble(4, price);
+            stmt.setString(1, name);
+            stmt.setString(2, description);
+            stmt.setDouble(3, price);
+            stmt.setInt   (4, theaterId);
 
             ResultSet rs = stmt.executeQuery();
             if (rs.next()) {
+                int id = rs.getInt("id");
                 conn.commit();
-                return rs.getInt("id");
+                return id;
             }
         } catch (SQLException e) {
             throw new RuntimeException("Error creating seat type", e);
         }
-
         return -1;
     }
 
@@ -406,24 +424,19 @@ public class PostgreSQLTheaterDAO implements TheaterDAO {
 
     @Override
     public int generateSeatsForSection(String sectionName, int theaterId) {
-        String sql = "SELECT generate_seats_for_section(?, ?)";
-
+        String sql = "SELECT generate_seats_for_section(?)";
         try (Connection conn = DatabaseConfig.getDataSource().getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-
             stmt.setString(1, sectionName);
-            stmt.setInt(2, theaterId);
             ResultSet rs = stmt.executeQuery();
-
             if (rs.next()) {
-                int seatCount = rs.getInt(1);
+                int count = rs.getInt(1);
                 conn.commit();
-                return seatCount;
+                return count;
             }
         } catch (SQLException e) {
             throw new RuntimeException("Error generating seats", e);
         }
-
         return 0;
     }
 
@@ -787,6 +800,34 @@ public class PostgreSQLTheaterDAO implements TheaterDAO {
         return Optional.empty();
     }
 
+    public Optional<Theater> getTheaterByName(String name) {
+        String sql = """
+        SELECT
+          id,
+          name,
+          location
+        FROM theaters
+        WHERE name = ?
+        """;
+        try (Connection conn = DatabaseConfig.getDataSource().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, name);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(new Theater(
+                            rs.getInt   ("id"),
+                            rs.getString("name"),
+                            rs.getString("location")
+                    ));
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error fetching theater", e);
+        }
+        return Optional.empty();
+    }
+
     @Override
     public boolean updateConfig(String key, String value, int theaterId) {
         String sql = "UPDATE theater_config SET config_value = ?, updated_at = CURRENT_TIMESTAMP WHERE config_key = ? AND theater_id = ?";
@@ -978,6 +1019,33 @@ public class PostgreSQLTheaterDAO implements TheaterDAO {
     }
 
     @Override
+    public Optional<Section> getSectionByNameAndTheater(String name, int theaterId) {
+        String sql = """
+        SELECT s.*, st.name AS seat_type_name
+          FROM sections s
+          JOIN seat_types st ON s.seat_type_id = st.id
+         WHERE s.name = ?
+           AND s.theater_id = ?
+        """;
+        try (Connection conn = DatabaseConfig.getDataSource().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, name);
+            stmt.setInt   (2, theaterId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(mapSection(rs));
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error fetching section by name and theater", e);
+        }
+        return Optional.empty();
+    }
+
+
+    @Override
     public List<Booking> getAllBookingsAllTheaters() {
         List<Booking> bookings = new ArrayList<>();
         String sql = """
@@ -1000,6 +1068,45 @@ public class PostgreSQLTheaterDAO implements TheaterDAO {
 
         return bookings;
     }
+
+    @Override
+    public int createSection(String name,
+                             int theaterId,
+                             int seatTypeId,
+                             int rows,
+                             int seatsPerRow,
+                             String description) {
+        String sql = """
+        INSERT INTO sections
+          (name, theater_id, seat_type_id, rows, seats_per_row, description)
+        VALUES (?, ?, ?, ?, ?, ?)
+        RETURNING id
+        """;
+        try (Connection conn = DatabaseConfig.getDataSource().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, name);
+            stmt.setInt   (2, theaterId);
+            stmt.setInt   (3, seatTypeId);
+            stmt.setInt   (4, rows);
+            stmt.setInt   (5, seatsPerRow);
+            stmt.setString(6, description);
+
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                int sectionId = rs.getInt("id");
+                conn.commit();
+
+                generateSeatsForSection(name, theaterId);
+
+                return sectionId;
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error creating section with theater_id", e);
+        }
+        return -1;
+    }
+
 
     // Helper methods for mapping ResultSet to objects
     private Theater mapTheater(ResultSet rs) throws SQLException {
